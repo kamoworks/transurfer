@@ -1,7 +1,7 @@
 /* App boot, navigation, and the Today screen. */
 'use strict';
 
-import { db, today, ensurePersistence } from './db.js';
+import { db, today, ensurePersistence, migrateTo4amBoundary } from './db.js';
 import { startMorning, startEvening, esc } from './sessions.js';
 import { openComposer } from './composer.js';
 
@@ -29,7 +29,7 @@ async function renderToday() {
   const days = await db.dayAll();
   const practiced = days.filter(d => d.morning || d.evening).length;
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
+  const greeting = hour < 4 ? 'Evening' : hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
 
   el.innerHTML = `
     <h1>${greeting}, Kamo</h1>
@@ -116,7 +116,7 @@ async function renderMirror() {
 document.querySelector('[data-screen="reel"]').innerHTML =
   '<h1>Reel</h1><p class="sub">The 78-card path.</p><div class="panel"><p class="pbody">Part I arrives with the next update. The practice above is already complete without it.</p></div>';
 
-show('today');
+migrateTo4amBoundary().then(() => show('today'));
 
 /* Service worker: only on the real origin, never localhost (workspace rule). */
 if ('serviceWorker' in navigator && location.hostname.endsWith('github.io')) {

@@ -56,11 +56,45 @@ export const db = {
   logAll: () => tx('logs', 'readonly', s => reqValue(s.getAll())),
 };
 
-/* Local date key, e.g. "2026-07-31" — day boundaries follow the phone's clock. */
+/* Practice-day key, e.g. "2026-07-31". The practice day rolls at 04:00, not
+   midnight: an evening closed at 00:54 belongs to the day being closed
+   (learned from real use, 2026-08-01). */
 export function today() {
-  const d = new Date();
+  const d = new Date(Date.now() - 4 * 3600 * 1000);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
     + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* One-time migration for records written before the 04:00 boundary existed:
+   anything stamped between 00:00 and 04:00 moves back one day. */
+export async function migrateTo4amBoundary() {
+  if (await db.kvGet('migrated-4am')) return;
+  const shift = iso => {
+    const t = new Date(iso);
+    if (t.getHours() >= 4) return null;
+    const d = new Date(t.getTime() - 4 * 3600 * 1000);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      + '-' + String(d.getDate()).padStart(2, '0');
+  };
+  for (const day of await db.dayAll()) {
+    const stamp = day.evening || day.morning;
+    const target = stamp && shift(stamp);
+    if (target && target !== day.date) {
+      const existing = (await db.dayGet(target)) || { date: target };
+      if (day.morning) existing.morning = existing.morning || day.morning;
+      if (day.evening) existing.evening = existing.evening || day.evening;
+      await db.dayPut(existing);
+      await tx('days', 'readwrite', s => reqValue(s.delete(day.date)));
+    }
+  }
+  for (const log of await db.logAll()) {
+    const target = log.t && shift(log.t);
+    if (target && target !== log.date) {
+      log.date = target;
+      await tx('logs', 'readwrite', s => reqValue(s.put(log)));
+    }
+  }
+  await db.kvSet('migrated-4am', true);
 }
 
 /* Ask for durable storage on every launch (Safari grants heuristically;

@@ -130,12 +130,10 @@ export function startEvening(onDone) {
     <div class="center" style="text-align:left">
       <p class="big">The mirror</p>
       <label for="e-mirror">What did the world reflect today? One line is enough. Blank is allowed.</label>
-      <textarea id="e-mirror" style="min-height:80px"></textarea>
+      <textarea id="e-mirror" style="min-height:110px"></textarea>
       <p class="big" style="margin-top:18px">Coordination</p>
       <p class="body" style="max-width:none;text-align:left">Say it, in your own voice or silently, and mean it:</p>
       <p style="font-size:19px;font-weight:600;margin:4px 0">Everything is unfolding according to my plan.</p>
-      <label for="e-note">Tonight's line for the record (optional):</label>
-      <input type="text" id="e-note">
     </div>
     <button class="btn" id="e-done">Spoken. Close the day.</button>`;
   $('e-close').onclick = () => { ov.classList.remove('open'); ov.innerHTML = ''; };
@@ -143,7 +141,7 @@ export function startEvening(onDone) {
     await markDay('evening');
     await db.logAdd({
       date: today(), t: new Date().toISOString(), type: 'evening',
-      mirror: $('e-mirror').value.trim(), note: $('e-note').value.trim(),
+      mirror: $('e-mirror').value.trim(),
     });
     ov.classList.remove('open');
     ov.innerHTML = '';

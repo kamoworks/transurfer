@@ -3,7 +3,7 @@
    versioned cache with cleanup. Bump CACHE_VERSION on every deploy. */
 'use strict';
 
-const CACHE_VERSION = 'transurfer-v1';
+const CACHE_VERSION = 'transurfer-v2';
 const ASSETS = [
   './',
   'index.html',
