@@ -1,0 +1,3 @@
+# Specs, research, and build logs stay in the private workspace.
+# They contain personal-context examples that must never reach a public origin.
+docs/

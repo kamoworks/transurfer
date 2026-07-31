@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#05060D">
+  <title>Transurfer — Step-0 Spike</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #05060D; color: #F4F5FA;
+      font-family: system-ui, sans-serif; line-height: 1.5; padding: 18px 16px 60px;
+    }
+    h1 { font-size: 22px; font-weight: 600; margin: 6px 0 2px; }
+    .sub { color: #8B90AD; font-size: 13px; margin: 0 0 22px; }
+    section {
+      background: #0E1122; border: 1px solid rgba(190, 197, 255, 0.12);
+      border-radius: 16px; padding: 16px; margin-bottom: 18px;
+    }
+    h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+    .how { color: #A6ABC8; font-size: 13px; margin: 0 0 12px; }
+    label { display: block; font-size: 12px; color: #8B90AD; margin: 10px 0 4px; }
+    input {
+      width: 100%; background: #05060D; color: #F4F5FA; font-size: 14px;
+      border: 1px solid rgba(190, 197, 255, 0.18); border-radius: 10px; padding: 10px 12px;
+    }
+    button {
+      background: #7A83FF; color: #fff; font-size: 14px; font-weight: 500;
+      border: 0; border-radius: 10px; padding: 11px 16px; margin: 12px 8px 0 0;
+    }
+    button.quiet { background: #1B1F3A; color: #C9CDE4; }
+    .status { font-family: ui-monospace, monospace; font-size: 12px; margin-top: 10px; }
+    .ok { color: #7FD4A2; } .bad { color: #FF8A8A; } .mid { color: #E0C36B; }
+    .log {
+      font-family: ui-monospace, monospace; font-size: 11px; color: #A6ABC8;
+      background: #05060D; border-radius: 10px; padding: 10px;
+      max-height: 200px; overflow-y: auto; margin-top: 10px; white-space: pre-wrap;
+    }
+    /* Glass test scene */
+    .scene { position: relative; height: 300px; border-radius: 14px; overflow: hidden; background: #05060D; }
+    .bloom { position: absolute; inset: 0; }
+    .bloom::before, .bloom::after {
+      content: ''; position: absolute; width: 260px; height: 260px; border-radius: 50%;
+      filter: blur(60px);
+    }
+    .bloom::before { background: rgba(101, 96, 255, 0.45); left: -40px; top: -60px; }
+    .bloom::after { background: rgba(163, 92, 246, 0.35); right: -50px; bottom: -70px; }
+    .scene.animated .bloom::before { animation: b1 9s ease-in-out infinite alternate; }
+    .scene.animated .bloom::after { animation: b2 11s ease-in-out infinite alternate; }
+    /* transform/opacity only — the blur itself is never animated (perf rule) */
+    @keyframes b1 { to { transform: translate3d(50px, 40px, 0) scale(1.15); } }
+    @keyframes b2 { to { transform: translate3d(-40px, -50px, 0) scale(1.1); } }
+    .gpanel {
+      position: absolute; left: 18px; right: 18px; top: 34px;
+      background: linear-gradient(180deg, rgba(18, 21, 42, 0.62), rgba(18, 21, 42, 0.44));
+      backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5);
+      border: 1px solid rgba(190, 197, 255, 0.25); border-radius: 16px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      padding: 16px; font-size: 14px;
+    }
+    .gpill {
+      position: absolute; left: 50%; transform: translateX(-50%); bottom: 22px;
+      background: linear-gradient(180deg, rgba(122, 131, 255, 0.34), rgba(122, 131, 255, 0.2));
+      backdrop-filter: blur(16px) saturate(1.5); -webkit-backdrop-filter: blur(16px) saturate(1.5);
+      border: 1px solid rgba(200, 206, 255, 0.35); border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      padding: 11px 26px; font-size: 14px; font-weight: 500;
+    }
+    .fps {
+      position: absolute; right: 10px; top: 10px; font-family: ui-monospace, monospace;
+      font-size: 13px; background: rgba(5, 6, 13, 0.7); border-radius: 8px; padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Step-0 Spike</h1>
+  <p class="sub">Three go/no-go tests. Run this from the INSTALLED home-screen app, not Safari.</p>
+
+  <!-- ========== TEST A: installed-context check ========== -->
+  <section>
+    <h2>A. Context</h2>
+    <p class="how">Confirms you are in the installed app (standalone), not a Safari tab.</p>
+    <div class="status" id="ctx"></div>
+  </section>
+
+  <!-- ========== TEST B: storage ========== -->
+  <section>
+    <h2>B. Storage survives force-quit</h2>
+    <p class="how">Every launch writes a record. Open the app, force-quit it (swipe away), reopen. The count must grow and old records must remain. Then check persisted status below.</p>
+    <div class="status" id="store"></div>
+    <button class="quiet" id="persistBtn">Request persistent storage</button>
+  </section>
+
+  <!-- ========== TEST C: streaming ========== -->
+  <section>
+    <h2>C. Streaming through the stub</h2>
+    <p class="how">Paste the stub URL and token. Start the 60s stream, watch chunks arrive, then LOCK the screen for ~15s mid-stream, unlock, and read the log. We expect the stream to die on lock; the test is whether we detect it cleanly.</p>
+    <label for="url">Stub URL</label>
+    <input id="url" placeholder="https://..." autocapitalize="off" autocorrect="off">
+    <label for="tok">Token</label>
+    <input id="tok" placeholder="token" autocapitalize="off" autocorrect="off">
+    <button id="quickBtn">Quick stream (5s)</button>
+    <button id="longBtn">60s stream</button>
+    <div class="log" id="slog">ready</div>
+  </section>
+
+  <!-- ========== TEST D: glass performance ========== -->
+  <section>
+    <h2>D. Glass at real frame rate</h2>
+    <p class="how">A representative Liquid Glass scene. Watch the FPS counter for ~20s with animation ON. Green needs 55+. Then toggle static and compare.</p>
+    <div class="scene animated" id="scene">
+      <div class="bloom"></div>
+      <div class="gpanel">Early morning on the farm. Text stays readable on the solid-leaning glass panel while light moves behind it.</div>
+      <div class="gpill">Continue</div>
+      <div class="fps" id="fps">-- fps</div>
+    </div>
+    <button class="quiet" id="animBtn">Toggle animation</button>
+    <div class="status" id="gstat"></div>
+  </section>
+
+  <script>
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const stamp = () => new Date().toISOString().slice(11, 23);
+
+    /* ---------- A. context ---------- */
+    (function ctx() {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+      $('ctx').innerHTML = standalone
+        ? '<span class="ok">standalone: YES — installed app context</span>'
+        : '<span class="bad">standalone: NO — you are in a browser tab. Install via Share → Add to Home Screen and reopen from the icon.</span>';
+    })();
+
+    /* ---------- B. storage ---------- */
+    const DB = 'transurfer-spike';
+    function idb() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('launches', { autoIncrement: true });
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    async function storageTest() {
+      try {
+        const db = await idb();
+        await new Promise((res, rej) => {
+          const tx = db.transaction('launches', 'readwrite');
+          tx.objectStore('launches').add({ t: new Date().toISOString() });
+          tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+        });
+        const all = await new Promise((res, rej) => {
+          const q = db.transaction('launches').objectStore('launches').getAll();
+          q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+        });
+        const persisted = navigator.storage && navigator.storage.persisted
+          ? await navigator.storage.persisted() : 'unsupported';
+        const est = navigator.storage && navigator.storage.estimate
+          ? await navigator.storage.estimate() : null;
+        const quota = est ? (est.quota / 1048576).toFixed(0) + ' MB quota, '
+          + (est.usage / 1024).toFixed(0) + ' KB used' : 'estimate unsupported';
+        $('store').innerHTML =
+          '<span class="ok">launches recorded: ' + all.length + '</span>'
+          + ' | first: ' + (all[0] ? all[0].t.slice(0, 19) : '-')
+          + '<br>persisted: <span class="' + (persisted === true ? 'ok' : 'mid') + '">'
+          + persisted + '</span> | ' + quota;
+      } catch (e) {
+        $('store').innerHTML = '<span class="bad">IndexedDB failed: ' + e + '</span>';
+      }
+    }
+    $('persistBtn').onclick = async () => {
+      const granted = navigator.storage && navigator.storage.persist
+        ? await navigator.storage.persist() : 'unsupported';
+      alert('persist() → ' + granted);
+      storageTest();
+    };
+    storageTest();
+
+    /* ---------- C. streaming ---------- */
+    let streaming = false; // client-side send-lock, same rule the real app will use
+    function slog(msg, cls) {
+      const el = $('slog');
+      el.innerHTML += '\n[' + stamp() + '] ' + (cls ? '<span class="' + cls + '">' + msg + '</span>' : msg);
+      el.scrollTop = el.scrollHeight;
+    }
+    document.addEventListener('visibilitychange', () =>
+      slog('visibility: ' + document.visibilityState, 'mid'));
+    async function stream(seconds) {
+      if (streaming) { slog('send-lock: a stream is already running', 'mid'); return; }
+      const url = $('url').value.trim().replace(/\/$/, '');
+      const tok = $('tok').value.trim();
+      if (!url || !tok) { slog('need URL and token', 'bad'); return; }
+      localStorage.setItem('spike.url', url); localStorage.setItem('spike.tok', tok);
+      streaming = true;
+      slog('POST ' + url + '/stream (' + seconds + 's) ...');
+      const t0 = performance.now();
+      try {
+        const res = await fetch(url + '/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Transurfer-Token': tok },
+          body: JSON.stringify({ seconds: seconds }),
+        });
+        slog('response: ' + res.status + ' ' + (res.headers.get('content-type') || ''));
+        if (!res.ok || !res.body) { streaming = false; return; }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) { slog('stream ended cleanly after ' + ((performance.now() - t0) / 1000).toFixed(1) + 's', 'ok'); break; }
+          slog('chunk +' + ((performance.now() - t0) / 1000).toFixed(1) + 's: ' + dec.decode(value).trim());
+        }
+      } catch (e) {
+        slog('stream broke after ' + ((performance.now() - t0) / 1000).toFixed(1) + 's: ' + e.name + ' — ' + e.message, 'bad');
+        slog('(a break after screen-lock is the EXPECTED iOS behavior; clean detection here = pass)', 'mid');
+      }
+      streaming = false;
+    }
+    $('quickBtn').onclick = () => stream(5);
+    $('longBtn').onclick = () => stream(60);
+    $('url').value = localStorage.getItem('spike.url') || '';
+    $('tok').value = localStorage.getItem('spike.tok') || '';
+
+    /* ---------- D. glass fps ---------- */
+    (function fpsMeter() {
+      let last = performance.now(), frames = [], worst = 60;
+      function tick(now) {
+        const fps = 1000 / (now - last); last = now;
+        frames.push(fps); if (frames.length > 60) frames.shift();
+        const avg = frames.reduce((a, b) => a + b, 0) / frames.length;
+        if (frames.length === 60 && avg < worst) worst = avg;
+        const el = $('fps');
+        el.textContent = avg.toFixed(0) + ' fps';
+        el.style.color = avg >= 55 ? '#7FD4A2' : avg >= 40 ? '#E0C36B' : '#FF8A8A';
+        $('gstat').textContent = 'worst rolling average this session: ' + (worst === 60 ? '--' : worst.toFixed(0)) + ' fps';
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    })();
+    $('animBtn').onclick = () => $('scene').classList.toggle('animated');
+  </script>
+</body>
+</html>
