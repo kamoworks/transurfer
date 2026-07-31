@@ -7,27 +7,29 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#05060D">
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="css/style.css">
   <title>Transurfer</title>
-  <style>
-    :root { color-scheme: dark; }
-    body {
-      margin: 0; min-height: 100vh; display: grid; place-items: center;
-      background: #05060D; color: #F4F5FA;
-      font-family: system-ui, sans-serif; text-align: center;
-    }
-    h1 { font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; }
-    p { color: #A6ABC8; margin: 0 0 24px; }
-    a {
-      color: #7A83FF; text-decoration: none; border: 1px solid rgba(122, 131, 255, 0.4);
-      border-radius: 12px; padding: 12px 22px; display: inline-block;
-    }
-  </style>
 </head>
 <body>
-  <main>
-    <h1>Transurfer</h1>
-    <p>In build. Step 0: on-device spike.</p>
-    <a href="spike.html">Open the spike</a>
-  </main>
+  <div class="ambient"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+
+  <div id="app">
+    <section data-screen="today" class="active"></section>
+    <section data-screen="slides"></section>
+    <section data-screen="mirror"></section>
+    <section data-screen="reel"></section>
+  </div>
+
+  <div id="session-overlay" class="overlay"></div>
+
+  <nav>
+    <button data-tab="today" class="active">Today</button>
+    <button data-tab="slides">Slides</button>
+    <button data-tab="mirror">Mirror</button>
+    <button data-tab="reel">Reel</button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
