@@ -3,7 +3,7 @@
    versioned cache with cleanup. Bump CACHE_VERSION on every deploy. */
 'use strict';
 
-const CACHE_VERSION = 'transurfer-v2';
+const CACHE_VERSION = 'transurfer-v3';
 const ASSETS = [
   './',
   'index.html',
@@ -13,6 +13,8 @@ const ASSETS = [
   'js/db.js',
   'js/sessions.js',
   'js/composer.js',
+  'js/instruments.js',
+  'js/settings.js',
   'fonts/fonts.css',
   'fonts/geist-300.woff2',
   'fonts/geist-400.woff2',

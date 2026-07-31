@@ -119,8 +119,9 @@ export async function startMorning(onDone) {
 
 /* ---------- evening close ---------- */
 
-export function startEvening(onDone) {
+export async function startEvening(onDone) {
   const ov = $('session-overlay');
+  const frames = (await db.logsByDate(today())).filter(l => l.type === 'frame');
   ov.classList.add('open');
   ov.innerHTML = `
     <div class="top">
@@ -128,6 +129,17 @@ export function startEvening(onDone) {
       <button class="close" id="e-close">Close</button>
     </div>
     <div class="center" style="text-align:left">
+      ${frames.length ? `
+      <p class="big">Today's frames</p>
+      ${frames.map(f => `
+        <div class="panel" data-frame="${f.id}" style="margin-bottom:10px">
+          <p class="pbody" style="color:var(--ink)">${esc(f.text)}</p>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn quiet" data-mark="landed" style="margin:0;flex:1">Landed</button>
+            <button class="btn quiet" data-mark="later" style="margin:0;flex:1">Not yet</button>
+          </div>
+        </div>`).join('')}
+      ` : ''}
       <p class="big">The mirror</p>
       <label for="e-mirror">What did the world reflect today? One line is enough. Blank is allowed.</label>
       <textarea id="e-mirror" style="min-height:110px"></textarea>
@@ -137,6 +149,18 @@ export function startEvening(onDone) {
     </div>
     <button class="btn" id="e-done">Spoken. Close the day.</button>`;
   $('e-close').onclick = () => { ov.classList.remove('open'); ov.innerHTML = ''; };
+  ov.querySelectorAll('[data-frame]').forEach(panel => {
+    panel.querySelectorAll('[data-mark]').forEach(btn => {
+      btn.onclick = async () => {
+        const frame = frames.find(f => f.id === Number(panel.dataset.frame));
+        frame.marker = btn.dataset.mark;
+        await db.logPut(frame);
+        // Celebrated singly, never aggregated: the panel simply settles.
+        panel.style.opacity = '0.55';
+        panel.querySelector('div').innerHTML = `<p class="meta">${btn.dataset.mark === 'landed' ? 'Landed. Noted with a quiet nod.' : 'Not yet. The frame stays composed.'}</p>`;
+      };
+    });
+  });
   $('e-done').onclick = async () => {
     await markDay('evening');
     await db.logAdd({

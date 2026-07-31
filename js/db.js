@@ -53,8 +53,20 @@ export const db = {
   dayAll: () => tx('days', 'readonly', s => reqValue(s.getAll())),
 
   logAdd: log => tx('logs', 'readwrite', s => reqValue(s.add(log))),
+  logPut: log => tx('logs', 'readwrite', s => reqValue(s.put(log))),
   logAll: () => tx('logs', 'readonly', s => reqValue(s.getAll())),
+  logsByDate: date => tx('logs', 'readonly', s => reqValue(s.index('byDate').getAll(date))),
+
+  kvKeys: () => tx('kv', 'readonly', s => reqValue(s.getAllKeys())),
+  clearStore: store => tx(store, 'readwrite', s => reqValue(s.clear())),
 };
+
+/* Practice-day key offset by n days (n=0 is today), honoring the 04:00 roll. */
+export function dayKey(offset) {
+  const d = new Date(Date.now() - 4 * 3600 * 1000 - offset * 86400 * 1000);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
+}
 
 /* Practice-day key, e.g. "2026-07-31". The practice day rolls at 04:00, not
    midnight: an evening closed at 00:54 belongs to the day being closed

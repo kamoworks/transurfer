@@ -1,9 +1,11 @@
 /* App boot, navigation, and the Today screen. */
 'use strict';
 
-import { db, today, ensurePersistence, migrateTo4amBoundary } from './db.js';
+import { db, today, dayKey, ensurePersistence, migrateTo4amBoundary } from './db.js';
 import { startMorning, startEvening, esc } from './sessions.js';
 import { openComposer } from './composer.js';
+import { openDrop, openBranch, openSign, openFrame, openReplay } from './instruments.js';
+import { openSettings, daysSinceExport } from './settings.js';
 
 const $ = id => document.getElementById(id);
 
@@ -31,9 +33,23 @@ async function renderToday() {
   const hour = new Date().getHours();
   const greeting = hour < 4 ? 'Evening' : hour < 12 ? 'Morning' : hour < 18 ? 'Afternoon' : 'Evening';
 
+  const dayMap = Object.fromEntries(days.map(d => [d.date, d]));
+  const dots = Array.from({ length: 14 }, (_, i) => {
+    const key = dayKey(13 - i);
+    const rec = dayMap[key];
+    return `<i class="${rec && (rec.morning || rec.evening) ? 'y' : ''}${key === today() ? ' now' : ''}"></i>`;
+  }).join('');
+  const exportAge = await daysSinceExport();
+  const nagBackup = practiced > 0 && exportAge > 30;
+
   el.innerHTML = `
-    <h1>${greeting}, Kamo</h1>
+    <div class="hrow">
+      <h1>${greeting}, Kamo</h1>
+      <button class="gear" id="t-settings" aria-label="Settings">&#9881;</button>
+    </div>
     <p class="sub">${practiced ? 'Days practiced: ' + practiced : 'Day one.'}</p>
+    <div class="dots14">${dots}</div>
+    ${nagBackup ? '<p class="meta" style="margin:0 2px 12px">The record has never left this phone. Export it in Settings.</p>' : ''}
     ${!active ? `
       <div class="panel tappable" id="t-compose">
         <p class="ptitle">Compose your slide</p>
@@ -54,14 +70,24 @@ async function renderToday() {
           ? 'The day is declared and on the record.'
           : 'The mirror, the coordination line, one line for the record.'}</p>
       </div>
-      <div class="panel">
-        <p class="plabel">Active slide</p>
-        <p class="ptitle">${esc(active.name)}</p>
-        <p class="pbody">Refine it in Slides whenever it goes stale. The instruments and the Reel arrive with the next update.</p>
-      </div>`}
-    <p class="meta" id="t-persist"></p>`;
+      <h2>Instruments</h2>
+      <div class="tools-grid">
+        <button class="tool-tile" id="i-drop"><b>Drop</b><span>release the grip</span></button>
+        <button class="tool-tile" id="i-branch"><b>Branch</b><span>select the favorable line</span></button>
+        <button class="tool-tile" id="i-sign"><b>Sign</b><span>log what appeared</span></button>
+        <button class="tool-tile" id="i-frame"><b>Frame</b><span>compose what's next</span></button>
+        <button class="tool-tile wide" id="i-replay"><b>Replay</b><span>thirty seconds inside the slide</span></button>
+      </div>`}`;
 
   if ($('t-compose')) $('t-compose').onclick = () => openComposer(null, renderToday);
+  $('t-settings').onclick = () => openSettings(renderToday);
+  if ($('i-drop')) {
+    $('i-drop').onclick = () => openDrop(renderToday);
+    $('i-branch').onclick = () => openBranch(renderToday);
+    $('i-sign').onclick = () => openSign(renderToday);
+    $('i-frame').onclick = () => openFrame(renderToday);
+    $('i-replay').onclick = () => openReplay(renderToday);
+  }
   if ($('t-morning')) $('t-morning').onclick = () => {
     if (!(day && day.morning)) startMorning(renderToday);
   };
@@ -69,8 +95,8 @@ async function renderToday() {
     if (!(day && day.evening)) startEvening(renderToday);
   };
 
-  const persisted = await ensurePersistence();
-  $('t-persist').textContent = 'storage: ' + (persisted === true ? 'persistent' : String(persisted));
+  // Re-request durable storage on every launch; status is visible in Settings.
+  await ensurePersistence();
 }
 
 /* ---------- Slides ---------- */
@@ -99,7 +125,20 @@ async function renderSlides() {
 /* ---------- Mirror (v1: the honest record) ---------- */
 async function renderMirror() {
   const el = document.querySelector('[data-screen="mirror"]');
-  const logs = (await db.logAll()).slice(-30).reverse();
+  const logs = (await db.logAll()).slice(-40).reverse();
+  const body = l => {
+    switch (l.type) {
+      case 'evening': return l.mirror || 'The day was closed.';
+      case 'morning': return 'Presence and the slide.';
+      case 'replay': return 'Thirty seconds inside the slide.';
+      case 'drop': return (l.charge || 'A grip, released.')
+        + (l.pendulum ? ' · pendulum: ' + l.pendulum + (l.move === 'quench' ? ' (quenched)' : ' (let fail)') : '');
+      case 'branch': return l.event + ' → ' + l.reading;
+      case 'sign': return (l.kind === 'discomfort' ? 'Soul discomfort · ' : '') + l.text;
+      case 'frame': return l.text + (l.marker === 'landed' ? ' · landed' : l.marker === 'later' ? ' · not yet' : '');
+      default: return '';
+    }
+  };
   el.innerHTML = `
     <h1>Mirror</h1>
     <p class="sub">What the record holds. Frequency, never scores.</p>
@@ -107,8 +146,7 @@ async function renderMirror() {
     ${logs.map(l => `
       <div class="panel">
         <p class="plabel">${l.date} · ${esc(l.type)}</p>
-        ${l.mirror ? `<p class="pbody">${esc(l.mirror)}</p>` : ''}
-        ${l.note ? `<p class="pbody">${esc(l.note)}</p>` : ''}
+        <p class="pbody">${esc(body(l))}</p>
       </div>`).join('')}`;
 }
 
